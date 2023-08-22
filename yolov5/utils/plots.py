@@ -2,22 +2,19 @@
 """
 Plotting utils
 """
-
-import math
-from copy import copy
-from pathlib import Path
-
-import cv2
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import seaborn as sn
-import torch
+from yolov5.utils.metrics import fitness
+from yolov5.utils.general import user_config_dir, is_ascii, xywh2xyxy, xyxy2xywh
 from PIL import Image, ImageDraw, ImageFont
-
-from utils.general import user_config_dir, is_ascii, xywh2xyxy, xyxy2xywh
-from utils.metrics import fitness
+import torch
+import seaborn as sn
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
+import cv2
+from pathlib import Path
+from copy import copy
+import math
 
 # Settings
 CONFIG_DIR = user_config_dir()  # Ultralytics settings dir
@@ -67,13 +64,16 @@ class Annotator:
         assert im.data.contiguous, 'Image not contiguous. Apply np.ascontiguousarray(im) to Annotator() input images.'
         self.pil = pil
         if self.pil:  # use PIL
-            self.im = im if isinstance(im, Image.Image) else Image.fromarray(im)
+            self.im = im if isinstance(
+                im, Image.Image) else Image.fromarray(im)
             self.draw = ImageDraw.Draw(self.im)
-            self.font = check_font(font, size=font_size or max(round(sum(self.im.size) / 2 * 0.035), 12))
+            self.font = check_font(font, size=font_size or max(
+                round(sum(self.im.size) / 2 * 0.035), 12))
             self.fh = self.font.getsize('a')[1] - 3  # font height
         else:  # use cv2
             self.im = im
-        self.lw = line_width or max(round(sum(im.shape) / 2 * 0.003), 2)  # line width
+        self.lw = line_width or max(
+            round(sum(im.shape) / 2 * 0.003), 2)  # line width
 
     def box_label(self, box, label='', color=(128, 128, 128), txt_color=(255, 255, 255)):
         # Add one xyxy box to image with label
@@ -81,16 +81,21 @@ class Annotator:
             self.draw.rectangle(box, width=self.lw, outline=color)  # box
             if label:
                 w = self.font.getsize(label)[0]  # text width
-                self.draw.rectangle([box[0], box[1] - self.fh, box[0] + w + 1, box[1] + 1], fill=color)
-                self.draw.text((box[0], box[1]), label, fill=txt_color, font=self.font, anchor='ls')
+                self.draw.rectangle(
+                    [box[0], box[1] - self.fh, box[0] + w + 1, box[1] + 1], fill=color)
+                self.draw.text((box[0], box[1]), label,
+                               fill=txt_color, font=self.font, anchor='ls')
         else:  # cv2
             c1, c2 = (int(box[0]), int(box[1])), (int(box[2]), int(box[3]))
-            cv2.rectangle(self.im, c1, c2, color, thickness=self.lw, lineType=cv2.LINE_AA)
+            cv2.rectangle(self.im, c1, c2, color,
+                          thickness=self.lw, lineType=cv2.LINE_AA)
             if label:
                 tf = max(self.lw - 1, 1)  # font thickness
-                w, h = cv2.getTextSize(label, 0, fontScale=self.lw / 3, thickness=tf)[0]
+                w, h = cv2.getTextSize(
+                    label, 0, fontScale=self.lw / 3, thickness=tf)[0]
                 c2 = c1[0] + w, c1[1] - h - 3
-                cv2.rectangle(self.im, c1, c2, color, -1, cv2.LINE_AA)  # filled
+                cv2.rectangle(self.im, c1, c2, color, -
+                              1, cv2.LINE_AA)  # filled
                 cv2.putText(self.im, label, (c1[0], c1[1] - 2), 0, self.lw / 3, txt_color, thickness=tf,
                             lineType=cv2.LINE_AA)
 
@@ -101,7 +106,8 @@ class Annotator:
     def text(self, xy, text, txt_color=(255, 255, 255)):
         # Add text to image (PIL-only)
         w, h = self.font.getsize(text)  # text width, height
-        self.draw.text((xy[0], xy[1] - h + 1), text, fill=txt_color, font=self.font)
+        self.draw.text((xy[0], xy[1] - h + 1), text,
+                       fill=txt_color, font=self.font)
 
     def result(self):
         # Return annotated image as array
@@ -110,7 +116,8 @@ class Annotator:
 
 def hist2d(x, y, n=100):
     # 2d histogram used in labels.png and evolve.png
-    xedges, yedges = np.linspace(x.min(), x.max(), n), np.linspace(y.min(), y.max(), n)
+    xedges, yedges = np.linspace(
+        x.min(), x.max(), n), np.linspace(y.min(), y.max(), n)
     hist, xedges, yedges = np.histogram2d(x, y, (xedges, yedges))
     xidx = np.clip(np.digitize(x, xedges) - 1, 0, hist.shape[0] - 1)
     yidx = np.clip(np.digitize(y, yedges) - 1, 0, hist.shape[1] - 1)
@@ -135,7 +142,8 @@ def output_to_target(output):
     targets = []
     for i, o in enumerate(output):
         for *box, conf, cls in o.cpu().numpy():
-            targets.append([i, cls, *list(*xyxy2xywh(np.array(box)[None])), conf])
+            targets.append(
+                [i, cls, *list(*xyxy2xywh(np.array(box)[None])), conf])
     return np.array(targets)
 
 
@@ -152,7 +160,8 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
     ns = np.ceil(bs ** 0.5)  # number of subplots (square)
 
     # Build Image
-    mosaic = np.full((int(ns * h), int(ns * w), 3), 255, dtype=np.uint8)  # init
+    mosaic = np.full((int(ns * h), int(ns * w), 3),
+                     255, dtype=np.uint8)  # init
     for i, im in enumerate(images):
         if i == max_subplots:  # if last batch has fewer images than we expect
             break
@@ -172,15 +181,18 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
     annotator = Annotator(mosaic, line_width=round(fs / 10), font_size=fs)
     for i in range(i + 1):
         x, y = int(w * (i // ns)), int(h * (i % ns))  # block origin
-        annotator.rectangle([x, y, x + w, y + h], None, (255, 255, 255), width=2)  # borders
+        annotator.rectangle([x, y, x + w, y + h], None,
+                            (255, 255, 255), width=2)  # borders
         if paths:
-            annotator.text((x + 5, y + 5 + h), text=Path(paths[i]).name[:40], txt_color=(220, 220, 220))  # filenames
+            annotator.text(
+                (x + 5, y + 5 + h), text=Path(paths[i]).name[:40], txt_color=(220, 220, 220))  # filenames
         if len(targets) > 0:
             ti = targets[targets[:, 0] == i]  # image targets
             boxes = xywh2xyxy(ti[:, 2:6]).T
             classes = ti[:, 1].astype('int')
             labels = ti.shape[1] == 6  # labels if no conf column
-            conf = None if labels else ti[:, 6]  # check for confidence presence (label vs pred)
+            # check for confidence presence (label vs pred)
+            conf = None if labels else ti[:, 6]
 
             if boxes.shape[1]:
                 if boxes.max() <= 1.01:  # if normalized with tolerance 0.01
@@ -202,7 +214,8 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
 
 def plot_lr_scheduler(optimizer, scheduler, epochs=300, save_dir=''):
     # Plot LR simulating training for full epochs
-    optimizer, scheduler = copy(optimizer), copy(scheduler)  # do not modify originals
+    optimizer, scheduler = copy(optimizer), copy(
+        scheduler)  # do not modify originals
     y = []
     for _ in range(epochs):
         scheduler.step()
@@ -241,7 +254,8 @@ def plot_targets_txt():  # from utils.plots import *; plot_targets_txt()
     fig, ax = plt.subplots(2, 2, figsize=(8, 8), tight_layout=True)
     ax = ax.ravel()
     for i in range(4):
-        ax[i].hist(x[i], bins=100, label='%.3g +/- %.3g' % (x[i].mean(), x[i].std()))
+        ax[i].hist(x[i], bins=100, label='%.3g +/- %.3g' %
+                   (x[i].mean(), x[i].std()))
         ax[i].legend()
         ax[i].set_title(s[i])
     plt.savefig('targets.jpg', dpi=200)
@@ -256,10 +270,12 @@ def plot_study_txt(path='', x=None):  # from utils.plots import *; plot_study_tx
     fig2, ax2 = plt.subplots(1, 1, figsize=(8, 4), tight_layout=True)
     # for f in [Path(path) / f'study_coco_{x}.txt' for x in ['yolov5s6', 'yolov5m6', 'yolov5l6', 'yolov5x6']]:
     for f in sorted(Path(path).glob('study*.txt')):
-        y = np.loadtxt(f, dtype=np.float32, usecols=[0, 1, 2, 3, 7, 8, 9], ndmin=2).T
+        y = np.loadtxt(f, dtype=np.float32, usecols=[
+                       0, 1, 2, 3, 7, 8, 9], ndmin=2).T
         x = np.arange(y.shape[1]) if x is None else np.array(x)
         if plot2:
-            s = ['P', 'R', 'mAP@.5', 'mAP@.5:.95', 't_preprocess (ms/img)', 't_inference (ms/img)', 't_NMS (ms/img)']
+            s = ['P', 'R', 'mAP@.5', 'mAP@.5:.95',
+                 't_preprocess (ms/img)', 't_inference (ms/img)', 't_NMS (ms/img)']
             for i in range(7):
                 ax[i].plot(x, y[i], '.-', linewidth=2, markersize=8)
                 ax[i].set_title(s[i])
@@ -289,7 +305,8 @@ def plot_labels(labels, names=(), save_dir=Path('')):
     x = pd.DataFrame(b.transpose(), columns=['x', 'y', 'width', 'height'])
 
     # seaborn correlogram
-    sn.pairplot(x, corner=True, diag_kind='auto', kind='hist', diag_kws=dict(bins=50), plot_kws=dict(pmax=0.9))
+    sn.pairplot(x, corner=True, diag_kind='auto', kind='hist',
+                diag_kws=dict(bins=50), plot_kws=dict(pmax=0.9))
     plt.savefig(save_dir / 'labels_correlogram.jpg', dpi=200)
     plt.close()
 
@@ -312,7 +329,8 @@ def plot_labels(labels, names=(), save_dir=Path('')):
     labels[:, 1:] = xywh2xyxy(labels[:, 1:]) * 2000
     img = Image.fromarray(np.ones((2000, 2000, 3), dtype=np.uint8) * 255)
     for cls, *box in labels[:1000]:
-        ImageDraw.Draw(img).rectangle(box, width=1, outline=colors(cls))  # plot
+        ImageDraw.Draw(img).rectangle(
+            box, width=1, outline=colors(cls))  # plot
     ax[1].imshow(img)
     ax[1].axis('off')
 
@@ -328,11 +346,13 @@ def plot_labels(labels, names=(), save_dir=Path('')):
 def profile_idetection(start=0, stop=0, labels=(), save_dir=''):
     # Plot iDetection '*.txt' per-image logs. from utils.plots import *; profile_idetection()
     ax = plt.subplots(2, 4, figsize=(12, 6), tight_layout=True)[1].ravel()
-    s = ['Images', 'Free Storage (GB)', 'RAM Usage (GB)', 'Battery', 'dt_raw (ms)', 'dt_smooth (ms)', 'real-world FPS']
+    s = ['Images', 'Free Storage (GB)', 'RAM Usage (GB)', 'Battery',
+         'dt_raw (ms)', 'dt_smooth (ms)', 'real-world FPS']
     files = list(Path(save_dir).glob('frames*.txt'))
     for fi, f in enumerate(files):
         try:
-            results = np.loadtxt(f, ndmin=2).T[:, 90:-30]  # clip first and last rows
+            # clip first and last rows
+            results = np.loadtxt(f, ndmin=2).T[:, 90:-30]
             n = results.shape[1]  # number of rows
             x = np.arange(start, min(stop, n) if stop else n)
             results = results[:, x]
@@ -340,8 +360,10 @@ def profile_idetection(start=0, stop=0, labels=(), save_dir=''):
             results[0] = x
             for i, a in enumerate(ax):
                 if i < len(results):
-                    label = labels[fi] if len(labels) else f.stem.replace('frames_', '')
-                    a.plot(t, results[i], marker='.', label=label, linewidth=1, markersize=5)
+                    label = labels[fi] if len(
+                        labels) else f.stem.replace('frames_', '')
+                    a.plot(t, results[i], marker='.',
+                           label=label, linewidth=1, markersize=5)
                     a.set_title(s[i])
                     a.set_xlabel('time (s)')
                     # if fi == len(files) - 1:
@@ -356,7 +378,8 @@ def profile_idetection(start=0, stop=0, labels=(), save_dir=''):
     plt.savefig(Path(save_dir) / 'idetection_profile.png', dpi=200)
 
 
-def plot_evolve(evolve_csv='path/to/evolve.csv'):  # from utils.plots import *; plot_evolve()
+# from utils.plots import *; plot_evolve()
+def plot_evolve(evolve_csv='path/to/evolve.csv'):
     # Plot evolve.csv hyp evolution results
     evolve_csv = Path(evolve_csv)
     data = pd.read_csv(evolve_csv)
@@ -370,9 +393,11 @@ def plot_evolve(evolve_csv='path/to/evolve.csv'):  # from utils.plots import *; 
         v = x[:, 7 + i]
         mu = v[j]  # best single result
         plt.subplot(6, 5, i + 1)
-        plt.scatter(v, f, c=hist2d(v, f, 20), cmap='viridis', alpha=.8, edgecolors='none')
+        plt.scatter(v, f, c=hist2d(v, f, 20), cmap='viridis',
+                    alpha=.8, edgecolors='none')
         plt.plot(mu, f.max(), 'k+', markersize=15)
-        plt.title('%s = %.3g' % (k, mu), fontdict={'size': 9})  # limit to 40 characters
+        plt.title('%s = %.3g' % (k, mu), fontdict={
+                  'size': 9})  # limit to 40 characters
         if i % 5 != 0:
             plt.yticks([])
         print('%15s: %.3g' % (k, mu))
@@ -388,7 +413,8 @@ def plot_results(file='path/to/results.csv', dir=''):
     fig, ax = plt.subplots(2, 5, figsize=(12, 6), tight_layout=True)
     ax = ax.ravel()
     files = list(save_dir.glob('results*.csv'))
-    assert len(files), f'No results.csv files found in {save_dir.resolve()}, nothing to plot.'
+    assert len(
+        files), f'No results.csv files found in {save_dir.resolve()}, nothing to plot.'
     for fi, f in enumerate(files):
         try:
             data = pd.read_csv(f)
@@ -397,7 +423,8 @@ def plot_results(file='path/to/results.csv', dir=''):
             for i, j in enumerate([1, 2, 3, 4, 5, 8, 9, 10, 6, 7]):
                 y = data.values[:, j]
                 # y[y == 0] = np.nan  # don't show zero values
-                ax[i].plot(x, y, marker='.', label=f.stem, linewidth=2, markersize=8)
+                ax[i].plot(x, y, marker='.', label=f.stem,
+                           linewidth=2, markersize=8)
                 ax[i].set_title(s[j], fontsize=12)
                 # if j in [8, 9, 10]:  # share train and val loss y axes
                 #     ax[i].get_shared_y_axes().join(ax[i], ax[i - 5])
@@ -419,11 +446,14 @@ def feature_visualization(x, module_type, stage, n=32, save_dir=Path('runs/detec
     if 'Detect' not in module_type:
         batch, channels, height, width = x.shape  # batch, channels, height, width
         if height > 1 and width > 1:
-            f = f"stage{stage}_{module_type.split('.')[-1]}_features.png"  # filename
+            # filename
+            f = f"stage{stage}_{module_type.split('.')[-1]}_features.png"
 
-            blocks = torch.chunk(x[0].cpu(), channels, dim=0)  # select batch index 0, block by channels
+            # select batch index 0, block by channels
+            blocks = torch.chunk(x[0].cpu(), channels, dim=0)
             n = min(n, channels)  # number of plots
-            fig, ax = plt.subplots(math.ceil(n / 8), 8, tight_layout=True)  # 8 rows x n/8 cols
+            fig, ax = plt.subplots(math.ceil(n / 8), 8,
+                                   tight_layout=True)  # 8 rows x n/8 cols
             ax = ax.ravel()
             plt.subplots_adjust(wspace=0.05, hspace=0.05)
             for i in range(n):
