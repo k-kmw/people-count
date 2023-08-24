@@ -24,7 +24,8 @@ HLS_OUTPUT = 'C:/Users/KMW/Desktop/django/static/video/hls/'
 # 혼잡도 카운팅
 cnt = 0
 ids = []
-line = [190, 240, 190, 420]  # x1, y1, x2, y2
+isInVideo = False
+line = []  # x1, y1, x2, y2
 
 
 def run_ffmpeg(width, height, fps):
@@ -50,6 +51,16 @@ def detect(opt):
         opt.save_txt, opt.img_size, opt.evaluate
     webcam = source == '0' or source.startswith(
         'rtsp') or source.startswith('http') or source.endswith('.txt')
+
+    global isInVideo
+    global HLS_OUTPUT
+    if "in" in source:  # in 이라는 글자가 포함되면 true
+        isInVideo = True
+        line = [200, 190, 200, 380]
+        HLS_OUTPUT = HLS_OUTPUT + "in/"
+    else:
+        line = [200, 190, 200, 280]
+        HLS_OUTPUT = HLS_OUTPUT + "out/"
 
     # initialize deepsort
     cfg = get_config()
@@ -163,16 +174,38 @@ def detect(opt):
                 # 인원수 카운팅
                 tracks = deepsort.tracker.tracks
                 for track in tracks:
+                    global cnt
                     print(ids)
-                    if(track.track_id not in ids and len(track.centroidarr) >= 3
-                       and track.centroidarr[-3][0] <= line[0]
-                       and track.centroidarr[-1][0] >= line[0]
-                       and track.centroidarr[-3][1] <= line[3]
-                       ):
-                        global cnt
-                        cnt += 1
-                        ids.append(track.track_id)
-                        print(ids)
+                    if(isInVideo):  # in count
+                        if(track.track_id not in ids and len(track.centroidarr) >= 3
+                           and ((track.centroidarr[-3][0] <= line[0]
+                                 and track.centroidarr[-3][1] >= line[1]
+                                 and track.centroidarr[-1][0] >= line[0]
+                                 and abs(track.centroidarr[-1][0] - track.centroidarr[-3][0]) < 50
+                                 ) or
+                                (track.centroidarr[-2][0] <= line[0]
+                                 and track.centroidarr[-2][1] <= line[1]
+                                 and track.centroidarr[-1][0] >= line[0]
+                                 and abs(track.centroidarr[-1][0] - track.centroidarr[-2][0]) < 50
+                                 ))
+                           ):
+                            cnt += 1
+                            ids.append(track.track_id)
+                    else:  # out count
+                        if(track.track_id not in ids and len(track.centroidarr) >= 3
+                           and ((track.centroidarr[-3][0] >= line[0]
+                                 and track.centroidarr[-3][1] <= line[3]
+                                 and track.centroidarr[-1][0] <= line[0]
+                                 and abs(track.centroidarr[-1][0] - track.centroidarr[-3][0]) < 50
+                                 ) or
+                                (track.centroidarr[-2][0] >= line[0]
+                                 and track.centroidarr[-2][1] <= line[3]
+                                 and track.centroidarr[-1][0] <= line[0]
+                                 and abs(track.centroidarr[-1][0] - track.centroidarr[-2][0]) < 50
+                                 ))
+                           ):
+                            cnt += 1
+                            ids.append(track.track_id)
 
                 # draw boxes for visualization
                 if len(outputs) > 0:
@@ -210,7 +243,7 @@ def detect(opt):
 
             # 혼잡도 출력
             text_scale = max(1, im0.shape[1] // 1600)
-            cv2.putText(im0, 'in: %d' % cnt, (20, 20 + text_scale),
+            cv2.putText(im0, 'count: %d' % cnt, (20, 20 + text_scale),
                         cv2.FONT_HERSHEY_PLAIN, text_scale, (0, 255, 255), thickness=2)
 
             # Stream results
