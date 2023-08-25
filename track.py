@@ -17,12 +17,14 @@ import os
 import argparse
 import subprocess
 import sys
+from datetime import datetime
 sys.path.insert(0, './yolov5')
 
 HLS_OUTPUT = 'C:/Users/KMW/Desktop/django/static/video/hls/'
 
 # 혼잡도 카운팅
-cnt = 0
+incount = 0
+outcount = 0
 ids = []
 isInVideo = False
 line = []  # x1, y1, x2, y2
@@ -174,37 +176,38 @@ def detect(opt):
                 # 인원수 카운팅
                 tracks = deepsort.tracker.tracks
                 for track in tracks:
-                    global cnt
+                    global incount
+                    global outcount
                     print(ids)
                     if(isInVideo):  # in count
                         if(track.track_id not in ids and len(track.centroidarr) >= 3
                            and ((track.centroidarr[-3][0] <= line[0]
                                  and track.centroidarr[-3][1] >= line[1]
                                  and track.centroidarr[-1][0] >= line[0]
-                                 and abs(track.centroidarr[-1][0] - track.centroidarr[-3][0]) < 50
+                                 and abs(track.centroidarr[-1][0] - track.centroidarr[-3][0]) < 360
                                  ) or
                                 (track.centroidarr[-2][0] <= line[0]
                                  and track.centroidarr[-2][1] <= line[1]
                                  and track.centroidarr[-1][0] >= line[0]
-                                 and abs(track.centroidarr[-1][0] - track.centroidarr[-2][0]) < 50
+                                 and abs(track.centroidarr[-1][0] - track.centroidarr[-2][0]) < 240
                                  ))
                            ):
-                            cnt += 1
+                            incount += 1
                             ids.append(track.track_id)
                     else:  # out count
                         if(track.track_id not in ids and len(track.centroidarr) >= 3
                            and ((track.centroidarr[-3][0] >= line[0]
                                  and track.centroidarr[-3][1] <= line[3]
                                  and track.centroidarr[-1][0] <= line[0]
-                                 and abs(track.centroidarr[-1][0] - track.centroidarr[-3][0]) < 50
+                                 and abs(track.centroidarr[-1][0] - track.centroidarr[-3][0]) < 360
                                  ) or
                                 (track.centroidarr[-2][0] >= line[0]
                                  and track.centroidarr[-2][1] <= line[3]
                                  and track.centroidarr[-1][0] <= line[0]
-                                 and abs(track.centroidarr[-1][0] - track.centroidarr[-2][0]) < 50
+                                 and abs(track.centroidarr[-1][0] - track.centroidarr[-2][0]) < 240
                                  ))
                            ):
-                            cnt += 1
+                            outcount += 1
                             ids.append(track.track_id)
 
                 # draw boxes for visualization
@@ -243,8 +246,12 @@ def detect(opt):
 
             # 혼잡도 출력
             text_scale = max(1, im0.shape[1] // 1600)
-            cv2.putText(im0, 'count: %d' % cnt, (20, 20 + text_scale),
-                        cv2.FONT_HERSHEY_PLAIN, text_scale, (0, 255, 255), thickness=2)
+            if isInVideo:
+                cv2.putText(im0, 'in: %d' % incount, (20, 20 + text_scale),
+                            cv2.FONT_HERSHEY_PLAIN, text_scale, (0, 255, 255), thickness=2)
+            else:
+                cv2.putText(im0, 'out: %d' % outcount, (20, 20 + text_scale),
+                            cv2.FONT_HERSHEY_PLAIN, text_scale, (0, 255, 255), thickness=2)
 
             # Stream results
             im0 = annotator.result()
@@ -292,7 +299,7 @@ if __name__ == '__main__':
                         default='deep_sort_pytorch/deep_sort/deep/checkpoint/ckpt.t7', help='ckpt.t7 path')
     # file/folder, 0 for webcam
     parser.add_argument('--source', type=str, default='0', help='source')
-    parser.add_argument('--output', type=str, default='inference/output',
+    parser.add_argument('--output', type=str, default='inference/output/' + datetime.now().strftime('%H.%M.%S'),
                         help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=640,
                         help='inference size (pixels)')
