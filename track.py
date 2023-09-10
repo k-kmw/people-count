@@ -18,9 +18,19 @@ import argparse
 import subprocess
 import sys
 from datetime import datetime
+import os, django
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))))
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+django.setup()
+#print(sys.path)
+sys.path.insert(0, './yolov5')
+from myyl.models import Bus
+
 sys.path.insert(0, './yolov5')
 
-HLS_OUTPUT = 'C:/Users/KMW/Desktop/django/static/video/hls/'
+
+HLS_OUTPUT = 'C:/Users/jeongho/Desktop/Django/DjangoOpencv/detectme/hls/'
 
 # 혼잡도 카운팅
 incount = 0
@@ -28,7 +38,6 @@ outcount = 0
 ids = []
 isInVideo = False
 line = []  # x1, y1, x2, y2
-
 
 def run_ffmpeg(width, height, fps):
     ffmpg_cmd = [
@@ -46,6 +55,8 @@ def run_ffmpeg(width, height, fps):
     ]
     return subprocess.Popen(ffmpg_cmd, stdin=subprocess.PIPE)
 
+# def saveData(num, in_, out_, con):
+#     Bus(num, in_, out_, con).save()
 
 def detect(opt):
     out, source, yolo_weights, deep_sort_weights, show_vid, save_vid, save_txt, imgsz, evaluate = \
@@ -124,7 +135,7 @@ def detect(opt):
 
     img = next(iter(dataset))[1]
     # ffmpeg_process = run_ffmpeg(img.shape[0], img.shape[1], 6)
-    ffmpeg_process = run_ffmpeg(720, 480, 6)
+    # ffmpeg_process = run_ffmpeg(720, 480, 6)
 
     for frame_idx, (path, img, im0s, vid_cap) in enumerate(dataset):
         img = torch.from_numpy(img).to(device)
@@ -249,6 +260,7 @@ def detect(opt):
             if isInVideo:
                 cv2.putText(im0, 'in: %d' % incount, (20, 20 + text_scale),
                             cv2.FONT_HERSHEY_PLAIN, text_scale, (0, 255, 255), thickness=2)
+                #saveData(7, incount, 0, "혼잡")
             else:
                 cv2.putText(im0, 'out: %d' % outcount, (20, 20 + text_scale),
                             cv2.FONT_HERSHEY_PLAIN, text_scale, (0, 255, 255), thickness=2)
@@ -262,7 +274,7 @@ def detect(opt):
                     raise StopIteration
 
             # hls 변환하기 위한 subprocess 생성
-            ffmpeg_process.stdin.write(im0)
+            #ffmpeg_process.stdin.write(im0)
 
             # Save results (image with detections)
             if save_vid:
@@ -292,6 +304,7 @@ def detect(opt):
 
 
 if __name__ == '__main__':
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'detectme.settings')
     parser = argparse.ArgumentParser()
     parser.add_argument('--yolo_weights', nargs='+', type=str,
                         default='yolov5/weights/crowdhuman_yolov5m.pt', help='model.pt path(s)')
